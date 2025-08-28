@@ -1,0 +1,73 @@
+package cmd
+
+import (
+	"fmt"
+	"log"
+	"net/http"
+
+	"github.com/google/go-github/v74/github"
+	"github.com/ludanortmun/ghu/internal"
+	"github.com/ludanortmun/ghu/internal/webserver"
+	"github.com/spf13/cobra"
+)
+
+// TODO: Add support for external config files
+
+var port int
+
+// serveCmd represents the serve command
+var serveCmd = &cobra.Command{
+	Use:   "serve [github url]",
+	Short: "Serves the website specified by github url",
+	Long: `Creates a web webserver to serve all the files specified in the GitHub URL.
+If the URL contains a specific branch, tag, or commit, the webserver will only serve the files from that specified reference.
+If not, the webserver will only serve the files from the default branch for the repository.
+If the URL contains a branch (or when using the default one), the webserver will always respond with the latest version of the files at that branch.
+If the URL contains a tag or commit hash, the files served will be pinned to that revision.
+`,
+	Run: func(cmd *cobra.Command, args []string) {
+		startServer(args[0])
+	},
+	Args: cobra.ExactArgs(1),
+}
+
+func init() {
+	rootCmd.AddCommand(serveCmd)
+	serveCmd.Flags().IntVarP(&port, "port", "p", 8080, "Port to run the webserver on")
+}
+
+func startServer(url string) {
+	client := github.NewClient(nil)
+
+	ghToken, ok := internal.GetAuthToken()
+
+	if ok {
+		log.Println("Using authenticated GitHub API client.")
+		client = client.WithAuthToken(ghToken)
+	} else {
+		log.Println("No PAT was found, using unauthenticated GitHub API client. " +
+			"If you want to access private repositories, please set a PAT using the `ghws auth set-token` command.")
+	}
+
+	fetcher := webserver.NewGitHubAPIFetcher(client)
+	server := &http.Server{
+		Addr: fmt.Sprintf("localhost:%d", port),
+	}
+
+	log.Printf("Starting webserver on http://%s", server.Addr)
+
+	target, err := internal.InferTargetFromUrl(url)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ghHandler := webserver.NewGitHubHandler(
+		fetcher,
+	).AddRootSite(target)
+
+	http.Handle("/{path...}", ghHandler)
+
+	if err := server.ListenAndServe(); err != nil {
+		panic(err)
+	}
+}
