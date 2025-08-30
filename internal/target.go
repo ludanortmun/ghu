@@ -14,11 +14,15 @@ type GitHubTarget struct {
 }
 
 // InferTargetFromUrl will take a valid GitHub URL and create a GitHubTarget object from it.
-// A GitHub URL will take the form "https://github.com/{owner}/{repo}/(tree/<ref>)?/(<path>/<to>/<root>)?", where:
-// - "tree/<ref>" is optional, if not present it defaults to the default branch of the repo
-// - "<ref>" can either be a commit hash or branch
-// - "<path>/<to>/<root>" is optional
-// - If "<path>/<to>/<root>" is present, then "tree/<ref>" MUST be present
+// A GitHub URL will take the form "https://github.com/{owner}/{repo}/((tree|blob)/<ref>)?/(<path>/<to>/<root>)?", where:
+//
+//   - "(tree|blob)/<ref>" is optional, if not present it defaults to the default branch of the repo. "tree" is used when the target is a directory, "blob" is used when the target is a file
+//
+//   - "<ref>" can either be a commit hash or branch
+//
+//   - "<path>/<to>/<root>" is optional
+//
+//   - If "<path>/<to>/<root>" is present, then "tree/<ref>" or "blob/<ref>" MUST be present
 func InferTargetFromUrl(githubUrl string) (GitHubTarget, error) {
 	target := GitHubTarget{}
 
@@ -45,8 +49,8 @@ func InferTargetFromUrl(githubUrl string) (GitHubTarget, error) {
 		return target, nil
 	}
 
-	// Otherwise, the URL will include at least the "/tree/<ref>" part
-	if len(parts) < 4 || parts[2] != "tree" {
+	// Otherwise, the URL will include at least the "/tree/<ref>" or "/blob/<ref>" part
+	if len(parts) < 4 || (parts[2] != "tree" && parts[2] != "blob") {
 		return GitHubTarget{}, errors.New(`invalid GitHub URL`)
 	}
 

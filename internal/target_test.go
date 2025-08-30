@@ -77,6 +77,17 @@ func TestInferTargetFromUrl(t *testing.T) {
 			},
 			expectError: false,
 		},
+		{
+			name: "file URL with blob path",
+			url:  "https://github.com/owner/repo/blob/main/path/to/file.go",
+			want: GitHubTarget{
+				Owner:      "owner",
+				Repository: "repo",
+				Ref:        "main",
+				Directory:  "path/to/file.go",
+			},
+			expectError: false,
+		},
 	}
 
 	for _, tt := range tests {
