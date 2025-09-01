@@ -38,39 +38,61 @@ func (cmd *GetGitignoreCommand) Execute() error {
 	log.Println("Retrieving supported languages")
 	languages, _ := cmd.fetchSupportedLanguages()
 
-	url, exists := findMatch(cmd.language, languages)
-	if !exists {
+	url, ok := findMatch(cmd.language, languages)
+	if !ok {
 		return errors.New("language not supported")
 	}
 
 	log.Printf("Found match: %s -> %s\n", cmd.language, url)
 
-	res, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-	defer res.Body.Close()
-	if res.StatusCode != http.StatusOK {
-		return errors.New("failed to download .gitignore file")
-	}
-
-	contents, err := io.ReadAll(res.Body)
+	content, err := downloadFile(url)
 	if err != nil {
 		return err
 	}
 
-	parent := filepath.Dir(cmd.outputPath)
-	err = os.MkdirAll(parent, os.ModePerm)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(cmd.outputPath, contents, os.ModePerm)
+	return saveToFile(cmd.outputPath, content)
 }
 
 func findMatch(language string, languages map[string]string) (string, bool) {
-	lowerLang := strings.ToLower(language)
-	url, exists := languages[lowerLang]
-	return url, exists
+	l := strings.ToLower(language)
+	url, ok := languages[l]
+
+	if !ok {
+		url, ok = languages[aliasesMap[l]]
+		if ok {
+			log.Printf("Using alias: %s -> %s\n", language, aliasesMap[l])
+		}
+	}
+
+	return url, ok
+}
+
+func saveToFile(path string, content []byte) error {
+	parent := filepath.Dir(path)
+	err := os.MkdirAll(parent, os.ModePerm)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, content, os.ModePerm)
+}
+
+func downloadFile(url string) ([]byte, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.New("failed to download file: " + resp.Status)
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
 }
 
 func (cmd *GetGitignoreCommand) fetchSupportedLanguages() (map[string]string, error) {
