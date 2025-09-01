@@ -5,7 +5,6 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/google/go-github/v74/github"
 	"github.com/ludanortmun/ghu/internal"
 	"github.com/ludanortmun/ghu/internal/webserver"
 	"github.com/spf13/cobra"
@@ -37,17 +36,7 @@ func init() {
 }
 
 func startServer(url string) {
-	client := github.NewClient(nil)
-
-	ghToken, ok := internal.GetAuthToken()
-
-	if ok {
-		log.Println("Using authenticated GitHub API client.")
-		client = client.WithAuthToken(ghToken)
-	} else {
-		log.Println("No PAT was found, using unauthenticated GitHub API client. " +
-			"If you want to access private repositories, please set a PAT using the `ghws auth set-token` command.")
-	}
+	client := internal.CreateGithubClient()
 
 	fetcher := webserver.NewGitHubAPIFetcher(client)
 	server := &http.Server{

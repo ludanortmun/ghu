@@ -3,7 +3,6 @@ package cmd
 import (
 	"log"
 
-	"github.com/google/go-github/v74/github"
 	"github.com/ludanortmun/ghu/internal"
 	"github.com/ludanortmun/ghu/internal/clonedir"
 	"github.com/spf13/cobra"
@@ -36,16 +35,7 @@ The second argument is optional and specifies the output directory where the con
 
 		log.Printf("Downloading (%s) %s/%s/%s\n", target.Ref, target.Owner, target.Repository, target.Directory)
 
-		client := github.NewClient(nil)
-		ghToken, ok := internal.GetAuthToken()
-
-		if ok {
-			log.Println("Using authenticated GitHub API client.")
-			client = client.WithAuthToken(ghToken)
-		} else {
-			log.Println("No PAT was found, using unauthenticated GitHub API client. " +
-				"If you want to access private repositories, please set a PAT using the `ghws auth set-token` command.")
-		}
+		client := internal.CreateGithubClient()
 		downloadCommand := clonedir.NewDownloadCommand(target, outputDir, client)
 
 		err = downloadCommand.Execute()
